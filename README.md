@@ -1,0 +1,1 @@
+# Claex-teste-MMKV-
