@@ -1,7 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator,} from "react-native";
+import React, { useState } from "react";
+import { SafeAreaView, View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator,} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { mostrarAlerta } from "./utils/mensagem";
 
-const API_URL = "https://lolooo-production.up.railway.app";
+const CHAVE_SALAS = "claex_salas";
+const CHAVE_MATERIAS = "claex_materias";
+const CHAVE_PROFESSORES = "claex_professores";
+
+const MATERIAS_PADRAO = [
+  { id_materia: "1", nome_materia: "Matemática" },
+  { id_materia: "2", nome_materia: "Português" },
+  { id_materia: "3", nome_materia: "Ciências" },
+  { id_materia: "4", nome_materia: "História" },
+  { id_materia: "5", nome_materia: "Geografia" },
+];
+const PROFESSORES_PADRAO = [
+  { id_professor: "1", nome_professor: "Professor 1" },
+  { id_professor: "2", nome_professor: "Professor 2" },
+];
 
 export default function FormNovaSala({ navigation }) {
   const [nomeSala, setNomeSala] = useState("");
@@ -18,44 +34,28 @@ export default function FormNovaSala({ navigation }) {
   const [carregando, setCarregando] = useState(false);
   const [carregandoDados, setCarregandoDados] = useState(false);
 
-  useEffect(() => {
-    buscarDados();
-  }, []);
-
-  async function buscarDados() {
-    try {
-      setCarregandoDados(true);
-
-      const [responseMaterias, responseProfessores] =
-        await Promise.all([
-          fetch(`${API_URL}/materias/listar`),
-          fetch(`${API_URL}/professores/listar`),
-        ]);
-
-      if (!responseMaterias.ok) {
-        throw new Error("Erro ao buscar matérias");
+  // Matérias e professores iniciais são locais; listas salvas pelo app têm prioridade.
+  React.useEffect(() => {
+    async function carregarDadosLocais() {
+      try {
+        setCarregandoDados(true);
+        const materiasSalvas = await AsyncStorage.getItem(CHAVE_MATERIAS);
+        const professoresSalvos = await AsyncStorage.getItem(CHAVE_PROFESSORES);
+        const listaMaterias = materiasSalvas ? JSON.parse(materiasSalvas) : MATERIAS_PADRAO;
+        const listaProfessores = professoresSalvos ? JSON.parse(professoresSalvos) : PROFESSORES_PADRAO;
+        setMaterias(Array.isArray(listaMaterias) ? listaMaterias : MATERIAS_PADRAO);
+        setProfessores(Array.isArray(listaProfessores) ? listaProfessores : PROFESSORES_PADRAO);
+        if (!materiasSalvas) await AsyncStorage.setItem(CHAVE_MATERIAS, JSON.stringify(MATERIAS_PADRAO));
+        if (!professoresSalvos) await AsyncStorage.setItem(CHAVE_PROFESSORES, JSON.stringify(PROFESSORES_PADRAO));
+      } catch (error) {
+        console.error("Erro ao carregar dados locais:", error);
+        mostrarAlerta("Erro", "Não foi possível carregar matérias e professores salvos no dispositivo.");
+      } finally {
+        setCarregandoDados(false);
       }
-
-      if (!responseProfessores.ok) {
-        throw new Error("Erro ao buscar professores");
-      }
-
-      const dadosMaterias = await responseMaterias.json();
-      const dadosProfessores = await responseProfessores.json();
-
-      setMaterias(dadosMaterias);
-      setProfessores(dadosProfessores);
-    } catch (error) {
-      console.error(error);
-
-      Alert.alert(
-        "Erro",
-        "Não foi possível carregar matérias e professores."
-      );
-    } finally {
-      setCarregandoDados(false);
     }
-  }
+    carregarDadosLocais();
+  }, []);
 
   function adicionarMateria() {
     setAulas([
@@ -88,148 +88,53 @@ export default function FormNovaSala({ navigation }) {
   }
 
   async function criarSala() {
-    if (!nomeSala.trim()) {
-      Alert.alert("Atenção", "Digite o nome da sala.");
-      return;
-    }
+    if (!nomeSala.trim()) return mostrarAlerta("Atenção", "Digite o nome da sala.");
+    if (!duracaoAula) return mostrarAlerta("Atenção", "Informe a duração da aula.");
+    if (!duracaoIntervalo) return mostrarAlerta("Atenção", "Informe a duração do intervalo.");
+    if (!inicioAula) return mostrarAlerta("Atenção", "Informe o horário de início da aula.");
+    if (!quantAulas) return mostrarAlerta("Atenção", "Informe a quantidade de aulas.");
 
-    if (!duracaoAula) {
-      Alert.alert(
-        "Atenção",
-        "Informe a duração da aula."
-      );
-      return;
-    }
-
-    if (!duracaoIntervalo) {
-      Alert.alert(
-        "Atenção",
-        "Informe a duração do intervalo."
-      );
-      return;
-    }
-
-    if (!inicioAula) {
-      Alert.alert(
-        "Atenção",
-        "Informe o horário de início da aula."
-      );
-      return;
-    }
-
-    if (!quantAulas) {
-      Alert.alert(
-        "Atenção",
-        "Informe a quantidade de aulas."
-      );
-      return;
-    }
+    const materiaInvalida = aulas.find((aula) => !aula.id_materia);
+    if (materiaInvalida) return mostrarAlerta("Atenção", "Selecione uma matéria para cada aula adicionada.");
 
     try {
       setCarregando(true);
+      const salasSalvas = await AsyncStorage.getItem(CHAVE_SALAS);
+      const salas = salasSalvas ? JSON.parse(salasSalvas) : [];
+      if (!Array.isArray(salas)) throw new Error("Os dados locais de salas estão inválidos.");
 
-      const sala = {
-        nome_sala: nomeSala,
-        duracao_aula: duracaoAula,
-        duracao_intervalo: duracaoIntervalo,
+      const idSala = `sala_${Date.now()}`;
+      const novaSala = {
+        id_sala: idSala,
+        nome_sala: nomeSala.trim(),
+        duracao_aula: Number(duracaoAula),
+        duracao_intervalo: Number(duracaoIntervalo),
         inicio_aula: inicioAula,
-        quant_aula: quantAulas,
-        escola: {
-          id: 26,
-        },
+        quant_aula: Number(quantAulas),
+        escola: { id: 26 },
+        materias: aulas.map((aula) => ({
+          id_materia: aula.id_materia,
+          nome_materia: materias.find((m) => String(m.id_materia) === String(aula.id_materia))?.nome_materia ?? "Matéria",
+          id_professor: aula.id_professor || null,
+          nome_professor: professores.find((p) => String(p.id_professor) === String(aula.id_professor))?.nome_professor ?? null,
+        })),
+        criadoEm: new Date().toISOString(),
       };
 
-      const response = await fetch(
-        `${API_URL}/salas/salvar`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(sala),
-        }
-      );
+      salas.push(novaSala);
+      await AsyncStorage.setItem(CHAVE_SALAS, JSON.stringify(salas));
 
-      if (!response.ok) {
-        throw new Error("Erro ao criar sala");
-      }
-
-      const dadosSala = await response.json();
-
-      const idSala = dadosSala.id_sala;
-
-      Alert.alert(
-        "Sucesso",
-        "Sala criada com sucesso!"
-      );
-
-      const materiasGrade = aulas.map((aula) => ({
-        id_materia: {
-          id_materia: aula.id_materia,
-        },
-        id_professor: {
-          id_professor:
-            aula.id_professor || null,
-        },
-      }));
-
-      if (materiasGrade.length > 0) {
-        const responseGrade = await fetch(
-          `${API_URL}/grade/gerargrade/${idSala}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(materiasGrade),
-          }
-        );
-
-        if (responseGrade.ok) {
-          Alert.alert(
-            "Sucesso",
-            "Grade criada com sucesso!",
-            [
-              {
-                text: "OK",
-                onPress: () =>
-                  navigation.navigate("listar_sala"),
-              },
-            ]
-          );
-        } else {
-          Alert.alert(
-            "Atenção",
-            "A sala foi criada, mas ocorreu um erro ao criar a grade.",
-            [
-              {
-                text: "OK",
-                onPress: () =>
-                  navigation.navigate("listar_sala"),
-              },
-            ]
-          );
-        }
-      } else {
-        Alert.alert(
-          "Sucesso",
-          "Sala criada sem matérias.",
-          [
-            {
-              text: "OK",
-              onPress: () =>
-                navigation.navigate("listar_sala"),
-            },
-          ]
-        );
-      }
+      mostrarAlerta("Sucesso", "Sala salva localmente neste dispositivo.");
+      setNomeSala("");
+      setDuracaoAula("");
+      setDuracaoIntervalo("");
+      setInicioAula("");
+      setQuantAulas("");
+      setAulas([]);
+      navigation.navigate("listar_sala");
     } catch (error) {
-      console.error(error);
-
-      Alert.alert(
-        "Erro",
-        "Ocorreu um erro ao criar a sala. Tente novamente."
-      );
+      console.error("Erro ao salvar sala localmente:", error);
+      mostrarAlerta("Erro", "Não foi possível salvar a sala neste dispositivo.");
     } finally {
       setCarregando(false);
     }
@@ -731,5 +636,4 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "bold",
   },
-
 });

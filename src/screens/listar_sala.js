@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, FlatList, Image, Alert, ActivityIndicator, Dimensions} from "react-native";
+import React, { useCallback, useState } from "react";
+import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, FlatList, Image, Alert, Platform, ActivityIndicator, Dimensions} from "react-native";
 
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Footer from './components/Footer';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { mostrarAlerta } from "./utils/mensagem";
 
-const API_URL = "https://lolooo-production.up.railway.app";
+const CHAVE_SALAS = "claex_salas";
 
 const { width } = Dimensions.get("window");
 
@@ -15,37 +18,29 @@ export default function ListarSala({ navigation }) {
   const [salas, setSalas] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
-  async function listarSalas() {
+  const listarSalas = useCallback(async () => {
     try {
       setCarregando(true);
-
-      const response = await fetch(`${API_URL}/salas/listar`);
-
-      if (!response.ok) {
-        throw new Error("Erro ao buscar salas");
-      }
-
-      const dados = await response.json();
-
-      setSalas(dados);
+      const dadosSalvos = await AsyncStorage.getItem(CHAVE_SALAS);
+      const dados = dadosSalvos ? JSON.parse(dadosSalvos) : [];
+      setSalas(Array.isArray(dados) ? dados : []);
     } catch (error) {
-      console.error(error);
-
-      Alert.alert(
-        "Erro",
-        "Não foi possível carregar as salas."
-      );
+      console.error("Erro ao carregar salas locais:", error);
+      mostrarAlerta("Erro", "Não foi possível carregar as salas salvas no dispositivo.");
+      setSalas([]);
     } finally {
       setCarregando(false);
     }
-  }
-
-  useEffect(() => {
-    listarSalas();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      listarSalas();
+    }, [listarSalas])
+  );
+
   function abrirSala(sala) {
-    Alert.alert(
+    mostrarAlerta(
       "Sala selecionada",
       `Você selecionou: ${sala.nome_sala}`
     );
@@ -67,24 +62,16 @@ export default function ListarSala({ navigation }) {
 
   function sair() {
     setPerfilAberto(false);
-
-    Alert.alert(
-      "Sair",
-      "Deseja realmente sair da sua conta?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Sair",
-          style: "destructive",
-          onPress: () => {
-            navigation.navigate("form_login");
-          },
-        },
-      ]
-    );
+    if (Platform.OS === "web") {
+      if (window.confirm("Deseja realmente sair da sua conta?")) {
+        navigation.navigate("form_login");
+      }
+      return;
+    }
+    Alert.alert("Sair", "Deseja realmente sair da sua conta?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sair", style: "destructive", onPress: () => navigation.navigate("form_login") },
+    ]);
   }
 
   return (
@@ -136,10 +123,7 @@ export default function ListarSala({ navigation }) {
             onPress={() => {
               setPerfilAberto(false);
 
-              Alert.alert(
-                "Meu perfil",
-                "Aqui você poderá visualizar seu perfil."
-              );
+              mostrarAlerta("Meu perfil", "Aqui você poderá visualizar seu perfil.");
             }}
           >
             <View style={styles.perfilIcone}>
@@ -166,10 +150,7 @@ export default function ListarSala({ navigation }) {
             onPress={() => {
               setPerfilAberto(false);
 
-              Alert.alert(
-                "Configurações",
-                "Aqui você poderá alterar as configurações da conta."
-              );
+              mostrarAlerta("Configurações", "Aqui você poderá alterar as configurações da conta.");
             }}
           >
             <View style={styles.perfilIcone}>
