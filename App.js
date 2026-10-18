@@ -2,11 +2,11 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import Home from '.src/screens/home';
-import FormLogin from '.src/screnns/form_login';
-import FormCadastro from '.src/screens/form_cadastro';
-import ListarSala from '.src/screens/listar_sala';
-import FormNovaSala from '.src/screens/form_nova_sala';
+import Home from './src/screens/home';
+import FormLogin from './src/screens/form_login';
+import FormCadastro from './src/screens/form_cadastro';
+import ListarSala from './src/screens/listar_sala';
+import FormNovaSala from './src/screens/form_nova_sala';
 
 const Stack = createNativeStackNavigator();
 
