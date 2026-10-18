@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 
-import * as Crypto from 'expo-crypto';
 import { storage } from './storage';
 
 const CHAVE_USUARIOS = 'usuarios';
@@ -62,17 +61,7 @@ export default function FormLogin({ navigation }) {
         return;
       }
 
-      if (!usuario.senhaSalt || !usuario.senhaHash) {
-        mostrarErro('Este cadastro não possui credenciais válidas.');
-        return;
-      }
-
-      const senhaHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        `${usuario.senhaSalt}:${senhaDigitada}`
-      );
-
-      if (senhaHash !== usuario.senhaHash) {
+      if (usuario.senha !== senhaDigitada) {
         mostrarErro('Senha incorreta!');
         return;
       }

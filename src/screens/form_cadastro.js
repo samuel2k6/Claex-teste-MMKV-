@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 
-import * as Crypto from 'expo-crypto';
 import { storage } from './storage';
 
 const CHAVE_USUARIOS = 'usuarios';
@@ -74,20 +73,12 @@ export default function Cadastro({ navigation }) {
         return;
       }
 
-      // Gera um salt exclusivo e o hash da senha.
-      const salt = Crypto.randomUUID();
-
-      const senhaHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        `${salt}:${senhaDigitada}`
-      );
-
+      // Salvamento local simples, sem dependência de crypto.
       const novoUsuario = {
-        id: Crypto.randomUUID(),
+        id: `${Date.now()}-${emailDigitado}`,
         nome: nomeDigitado,
         email: emailDigitado,
-        senhaSalt: salt,
-        senhaHash,
+        senha: senhaDigitada,
         tipo,
         criadoEm: new Date().toISOString(),
       };
