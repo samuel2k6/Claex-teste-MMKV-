@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingVi
 } from 'react-native';
 
 import * as Crypto from 'expo-crypto';
-import { storage } from '.src/storage/storage';
+import { storage } from './storage';
 
 const CHAVE_USUARIOS = 'usuarios';
 
